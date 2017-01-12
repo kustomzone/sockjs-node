@@ -16,8 +16,8 @@ clean:
 
 #### Testing
 
-test_server:
-	node examples/test_server/server.js
+test_server: build
+	node tests/test_server/server.js
 
 serve:
 	@if [ -e .pidfile.pid ]; then		\
@@ -50,6 +50,6 @@ VER:=$(shell ./VERSION-GEN)
 .PHONY: tag
 tag: all
 	git commit $(TAG_OPTS) package.json Changelog -m "Release $(RVER)"
-	git tag -s v$(RVER) -m "Release $(RVER)"
+	git tag v$(RVER) -m "Release $(RVER)"
 	@echo ' [*] Now run'
 	@echo 'git push; git push --tag'

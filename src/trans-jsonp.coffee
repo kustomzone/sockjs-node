@@ -10,14 +10,15 @@ class JsonpReceiver extends transport.ResponseReceiver
     protocol: "jsonp-polling"
     max_response_size: 1
 
-    constructor: (res, options, @callback) ->
-        super(res, options)
+    constructor: (req, res, options, @callback) ->
+        super(req, res, options)
 
     doSendFrame: (payload) ->
         # Yes, JSONed twice, there isn't a a better way, we must pass
         # a string back, and the script, will be evaled() by the
         # browser.
-        super(@callback + "(" + JSON.stringify(payload) + ");\r\n")
+        # prepend comment to avoid SWF exploit #163
+        super("/**/" + @callback + "(" + JSON.stringify(payload) + ");\r\n")
 
 
 exports.app =
@@ -29,16 +30,18 @@ exports.app =
             }
 
         callback = if 'c' of req.query then req.query['c'] else req.query['callback']
-        if /[^a-zA-Z0-9-_.]/.test(callback)
+        if /[^a-zA-Z0-9-_.]/.test(callback) or callback.length > 32
             throw {
                 status: 500
                 message: 'invalid "callback" parameter'
             }
 
+        # protect against SWF JSONP exploit - #163
+        res.setHeader('X-Content-Type-Options', 'nosniff')
         res.setHeader('Content-Type', 'application/javascript; charset=UTF-8')
         res.writeHead(200)
 
-        transport.register(req, @, new JsonpReceiver(res, @options, callback))
+        transport.register(req, @, new JsonpReceiver(req, res, @options, callback))
         return true
 
     jsonp_send: (req, res, query) ->
@@ -50,7 +53,7 @@ exports.app =
         if typeof query is 'string'
             try
                 d = JSON.parse(query)
-            catch e
+            catch x
                 throw {
                     status: 500
                     message: 'Broken JSON encoding.'
@@ -60,7 +63,7 @@ exports.app =
         if typeof d is 'string' and d
             try
                 d = JSON.parse(d)
-            catch e
+            catch x
                 throw {
                     status: 500
                     message: 'Broken JSON encoding.'

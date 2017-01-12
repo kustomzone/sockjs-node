@@ -1,3 +1,134 @@
+0.3.18
+======
+
+  * Change to using `res.statusCode` instead of manual parsing of `res._header` #213
+  * Update sockjs-protocol filename in README #203
+
+0.3.17
+======
+
+  * Fix usage of undefined `session` in `heartbeat_timeout` #179
+
+0.3.16
+======
+
+  * Fix CORS response for null origin #177
+  * Add websocket ping-pong and close if no response #129, #162, #169
+  * Update sockjs-client version in examples #182
+  * Add koa example #180
+  * Disable raw websocket endpoint when websocket = false #183
+  * Upgrade to faye-websocket 0.10.0 and use proper close code
+  * When connection is aborted, don't delay the teardown
+  * Forward additional headers #188
+  * Add `no-transform` to Cache-Control headers #189
+  * Update documentation about heartbeats #192
+
+
+0.3.15
+======
+
+  * Remove usage of naked '@' function params to be compatible with coffeescript 1.9.0 #175
+
+0.3.14
+======
+
+  * Re-publish to npm because of build issue in 0.3.13
+
+0.3.13
+======
+
+  * Upgrade faye-websocket to 0.9.3 to fix #171
+
+0.3.12
+======
+
+ * Allow Faye socket constructor options to be passed with
+   faye_server_options option to createServer
+ * Fix websocket bad json tests
+ * Upgrade Faye to allow 0.9.*
+
+0.3.11
+======
+
+ * #133 -  only delay disconnect on non-websocket transports
+ * Upgrade Faye to 0.8.0
+
+0.3.10
+======
+
+ * #168 - Add CORS headers for eventsource
+ * #158 - schedule heartbeat timer even if send_buffer is not empty
+ * #96 - remove rbytes dependency
+ * #83 - update documentation for prefix
+ * #163 - add protection to JSON for SWF exploit
+ * #104 - delete unused parameters in code
+ * #106 - update CDN urls
+ * #79 - Don't remove stream listeners until after end so 'close' event is heard
+ * Get rid of need for _sockjs_onload global variable
+ * Use Faye for websocket request validation
+ * Upgrade Faye to 0.7.3
+ * Upgrade node-uuid to 1.4.1
+
+0.3.9
+=====
+
+ * #130 - Set Vary: Origin on CORS requests
+ * Upgrade Faye to 0.7.2 from 0.7.0
+
+
+0.3.8
+=====
+
+ * #118 - Allow servers to specify a base URL in /info
+ * #131 - Don't look up session id undefined
+ * #124 - Small grammar updates for ReadMe
+ * Upgrade Faye to 0.7.0 from 0.4.0
+
+0.3.7
+=====
+
+ * Expose "protocol" on raw websocket connection instance, correctly
+
+0.3.6
+=====
+
+ * When the server closes a connection, make sure the send buffer still
+   gets flushed.
+ * Expose "protocol" on raw websocket connection instance
+ * #105, #109, #113 - expose 'host', 'user-agent', and 'accept-language'
+   headers
+ * Serve SockJS over https CDN by default
+ * Upgrade Faye to 0.4.4 from 0.4.0
+
+0.3.5
+=====
+
+ * #103 - connection.protocol might have been empty on some rare
+   occasions.
+ * #99 - faye-websocket was leaking sockets in "closed" state
+   when dealing with rfc websockets
+
+
+0.3.4
+=====
+
+ * #73 - apparently 'package' is a reserved keyword (use 'pkg' instead)
+ * #93 - Coffescript can leak a variable when the same name is used
+   in catch statement. Let's always use 'x' as the variable in catch.
+ * #76 - decorateConnection could throw an error if remote connection
+   was closed before setup was complete
+ * #90 - Fix "TypeError: 'addListener'" exception (via @pl).
+ * remove 'optionalDependencies' section from package.json,
+   'rbytes' was always optional.
+ * #91 - Fix rare null exception.
+
+
+0.3.3
+=====
+
+ * sockjs/sockjs-protocol#56, #88 Fix for iOS 6 caching POSTs
+
+
 0.3.1
 =====
 

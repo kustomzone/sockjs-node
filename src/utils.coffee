@@ -6,36 +6,12 @@
 
 crypto = require('crypto')
 
-try
-    rbytes = require('rbytes')
-catch x
-    null
-
 exports.array_intersection = array_intersection = (arr_a, arr_b) ->
     r = []
     for a in arr_a
         if arr_b.indexOf(a) isnt -1
             r.push(a)
     return r
-
-# exports.array_contains = (arr, element) ->
-#     return (arr.indexOf(element) !== -1)
-
-exports.verify_origin = (origin, list_of_origins) ->
-    if list_of_origins.indexOf('*:*') isnt -1
-        return true
-    if not origin
-        return false
-    try
-        parts = url.parse(origin)
-        origins = [parts.host + ':' + parts.port,
-                   parts.host + ':*',
-                   '*:' + parts.port]
-        if array_intersection(origins, list_of_origins).length > 0
-            return true
-    catch x
-        null
-    return false
 
 exports.escape_selected = (str, chars) ->
     map = {}
@@ -137,12 +113,6 @@ exports.parseCookie = (cookie_header) ->
     return cookies
 
 exports.random32 = () ->
-    if rbytes
-        x = rbytes.randomBytes(4)
-        v = [x[0], x[1], x[2], x[3]]
-    else
-        foo = -> Math.floor(Math.random()*256)
-        v = [foo(), foo(), foo(), foo()]
-
-    x =  v[0] + (v[1]*256 ) + (v[2]*256*256) + (v[3]*256*256*256)
-    return x
+    foo = crypto.randomBytes(4)
+    v = [foo[0], foo[1], foo[2], foo[3]]
+    return  v[0] + (v[1]*256) + (v[2]*256*256) + (v[3]*256*256*256)

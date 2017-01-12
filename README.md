@@ -1,8 +1,34 @@
+[![NPM version](https://badge.fury.io/js/sockjs.svg)](http://badge.fury.io/js/sockjs)
+
 SockJS family:
 
   * [SockJS-client](https://github.com/sockjs/sockjs-client) JavaScript client library
   * [SockJS-node](https://github.com/sockjs/sockjs-node) Node.js server
   * [SockJS-erlang](https://github.com/sockjs/sockjs-erlang) Erlang server
+  * [SockJS-tornado](https://github.com/MrJoes/sockjs-tornado) Python/Tornado server
+  * [vert.x](https://github.com/eclipse/vert.x) Java/vert.x server
+
+Work in progress:
+
+  * [SockJS-ruby](https://github.com/nyarly/sockjs-ruby)
+  * [SockJS-netty](https://github.com/cgbystrom/sockjs-netty)
+  * [SockJS-gevent](https://github.com/sdiehl/sockjs-gevent) ([and a fork](https://github.com/njoyce/sockjs-gevent))
+  * [pyramid-SockJS](https://github.com/fafhrd91/pyramid_sockjs)
+  * [wildcloud-websockets](https://github.com/wildcloud/wildcloud-websockets)
+  * [SockJS-cyclone](https://github.com/flaviogrossi/sockjs-cyclone)
+  * [SockJS-twisted](https://github.com/Fugiman/sockjs-twisted/)
+  * [wai-SockJS](https://github.com/Palmik/wai-sockjs)
+  * [SockJS-perl](https://github.com/vti/sockjs-perl)
+  * [SockJS-go](https://github.com/igm/sockjs-go/)
+
+What is SockJS?
+===============
+
+SockJS is a JavaScript library (for browsers) that provides a WebSocket-like
+object. SockJS gives you a coherent, cross-browser, Javascript API
+which creates a low latency, full duplex, cross-domain communication
+channel between the browser and the web server, with WebSockets or without.
+This necessitates the use of a server, which this is one version of, for Node.js.
 
 
 SockJS-node server
@@ -16,15 +42,13 @@ To install `sockjs-node` run:
 
     npm install sockjs
 
-(If you see `rbytes` dependecy failing, don't worry, it's optional, SockJS-node will work fine without it.)
-
-An simplified echo SockJS server could look more or less like:
+A simplified echo SockJS server could look more or less like:
 
 ```javascript
 var http = require('http');
 var sockjs = require('sockjs');
 
-var echo = sockjs.createServer();
+var echo = sockjs.createServer({ sockjs_url: 'http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js' });
 echo.on('connection', function(conn) {
     conn.on('data', function(message) {
         conn.write(message);
@@ -46,24 +70,11 @@ Subscribe to
 discussions and support.
 
 
-Live QUnit tests and smoke tests
---------------------------------
-
-[SockJS-client](https://github.com/sockjs/sockjs-client) comes with
-some QUnit tests and a few smoke tests that are using SockJS-node. At
-the moment they are deployed in few places, just click to see if
-SockJS is working in your browser:
-
- * http://sockjs.popcnt.org/ and https://sockjs.popcnt.org/ (hosted in Europe)
- * http://sockjs.cloudfoundry.com/ (CloudFoundry, websockets disabled, loadbalanced)
- * https://sockjs.cloudfoundry.com/ (CloudFoundry SSL, websockets disabled, loadbalanced)
-
-
 SockJS-node API
 ---------------
 
-The API design is based on the common Node API's like
-[Streams API](http://nodejs.org/docs/v0.5.8/api/streams.html) or
+The API design is based on common Node APIs like the
+[Streams API](http://nodejs.org/docs/v0.5.8/api/streams.html) or the
 [Http.Server API](http://nodejs.org/docs/v0.5.8/api/http.html#http.Server).
 
 ### Server class
@@ -88,7 +99,7 @@ Where `options` is a hash which can contain:
    domain local to the SockJS server. This iframe also does need to
    load SockJS javascript client library, and this option lets you specify
    its url (if you're unsure, point it to
-   <a href="http://cdn.sockjs.org/sockjs-0.3.min.js">
+   <a href="http://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js">
    the latest minified SockJS client release</a>, this is the default).
    You must explicitly specify this url on the server side for security
    reasons - we don't want the possibility of running any foreign
@@ -97,7 +108,7 @@ Where `options` is a hash which can contain:
    browser - it makes sense to reuse the sockjs url you're using in
    normally.</dd>
 
-<dt>prefix (string)</dt>
+<dt>prefix (string regex)</dt>
 <dd>A url prefix for the server. All http requests which paths begins
    with selected prefix will be handled by SockJS. All other requests
    will be passed through, to previously registered handlers.</dd>
@@ -121,7 +132,7 @@ Where `options` is a hash which can contain:
 <dd>Some hosting providers enable sticky sessions only to requests that
   have JSESSIONID cookie set. This setting controls if the server should
   set this cookie to a dummy value. By default setting JSESSIONID cookie
-  is disabled. More sophisticated beaviour can be achieved by supplying
+  is disabled. More sophisticated behaviour can be achieved by supplying
   a function.</dd>
 
 <dt>log (function(severity, message))</dt>
@@ -135,9 +146,9 @@ Where `options` is a hash which can contain:
 
 <dt>heartbeat_delay (milliseconds)</dt>
 <dd>In order to keep proxies and load balancers from closing long
-  running http requests we need to pretend that the connecion is
+  running http requests we need to pretend that the connection is
   active and send a heartbeat packet once in a while. This setting
-  controlls how often this is done. By default a heartbeat packet is
+  controls how often this is done. By default a heartbeat packet is
   sent every 25 seconds.  </dd>
 
 <dt>disconnect_delay (milliseconds)</dt>
@@ -201,9 +212,9 @@ has following methods and properties:
 <dt>Property: headers (object)</dt>
 <dd>Hash containing various headers copied from last receiving request
     on that connection. Exposed headers include: `origin`, `referer`
-    and `x-forwarded-for` (and friends). We expliclty do not grant
+    and `x-forwarded-for` (and friends). We explicitly do not grant
     access to `cookie` header, as using it may easily lead to security
-    issues (for details read the section "Authorization").</dd>
+    issues (for details read the section "Authorisation").</dd>
 
 <dt>Property: url (string)</dt>
 <dd><a href="http://nodejs.org/docs/v0.4.10/api/http.html#request.url">Url</a>
@@ -298,11 +309,13 @@ this url. This can be a command line client, external application,
 third party code or even a browser (though I don't know why you would
 want to do so).
 
+Note: This endpoint will *not send any heartbeat packets*.
+
 
 Deployment and load balancing
 -----------------------------
 
-There are two issues that needs to be considered when planning a
+There are two issues that need to be considered when planning a
 non-trivial SockJS-node deployment: WebSocket-compatible load balancer
 and sticky sessions (aka session affinity).
 
@@ -311,7 +324,7 @@ and sticky sessions (aka session affinity).
 Often WebSockets don't play nicely with proxies and load balancers.
 Deploying a SockJS server behind Nginx or Apache could be painful.
 
-Fortunetely recent versions of an excellent load balancer
+Fortunately recent versions of an excellent load balancer
 [HAProxy](http://haproxy.1wt.eu/) are able to proxy WebSocket
 connections. We propose to put HAProxy as a front line load balancer
 and use it to split SockJS traffic from normal HTTP data. Take a look
@@ -324,18 +337,18 @@ names.
 
 ### Sticky sessions
 
-If you plan depling more than one SockJS server, you must make sure
+If you plan deploying more than one SockJS server, you must make sure
 that all HTTP requests for a single session will hit the same server.
-SockJS has two mechanisms that can be usefull to achieve that:
+SockJS has two mechanisms that can be useful to achieve that:
 
  * Urls are prefixed with server and session id numbers, like:
    `/resource/<server_number>/<session_id>/transport`.  This is
-   usefull for load balancers that support prefix-based affinity
+   useful for load balancers that support prefix-based affinity
    (HAProxy does).
  * `JSESSIONID` cookie is being set by SockJS-node. Many load
    balancers turn on sticky sessions if that cookie is set. This
    technique is derived from Java applications, where sticky sessions
-   are often neccesary. HAProxy does support this method, as well as
+   are often necessary. HAProxy does support this method, as well as
    some hosting providers, for example CloudFoundry.  In order to
    enable this method on the client side, please supply a
    `cookie:true` option to SockJS constructor.
@@ -349,6 +362,7 @@ git repo and follow these steps. First you need to install
 dependencies:
 
     cd sockjs-node
+    npm install
     npm install --dev
     ln -s .. node_modules/sockjs
 
@@ -369,7 +383,7 @@ To run it run something like:
 
     cd sockjs-protocol
     make test_deps
-    ./venv/bin/python sockjs-protocol-0.3.py
+    ./venv/bin/python sockjs-protocol.py
 
 For details see
 [SockJS-protocol README](https://github.com/sockjs/sockjs-protocol#readme).
@@ -398,10 +412,10 @@ source code.
 Various issues and design considerations
 ----------------------------------------
 
-### Authorization
+### Authorisation
 
 SockJS-node does not expose cookies to the application. This is done
-deliberately as using cookie-based authorization with SockJS simply
+deliberately as using cookie-based authorisation with SockJS simply
 doesn't make sense and will lead to security issues.
 
 Cookies are a contract between a browser and an http server, and are
@@ -411,14 +425,14 @@ the host. But to get various transports working, SockJS uses a middleman
 - an iframe hosted from target SockJS domain. That means the server
 will receive requests from the iframe, and not from the real
 domain. The domain of an iframe is the same as the SockJS domain. The
-problem is that any website can embedd the iframe and communicate with
+problem is that any website can embed the iframe and communicate with
 it - and request establishing SockJS connection. Using cookies for
-authorization in this scenario will result in granting full access to
+authorisation in this scenario will result in granting full access to
 SockJS communication with your website from any website. This is a
 classic CSRF attack.
 
 Basically - cookies are not suited for SockJS model. If you want to
-authorize a session - provide a unique token on a page, send it as a
+authorise a session - provide a unique token on a page, send it as a
 first thing over SockJS connection and validate it on the server
 side. In essence, this is how cookies work.
 

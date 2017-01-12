@@ -5,7 +5,7 @@
 # ***** END LICENSE BLOCK *****
 
 stream = require('stream')
-uuid = require('node-uuid')
+uuid = require('uuid')
 utils = require('./utils')
 
 class Transport
@@ -21,7 +21,7 @@ closeFrame = (status, reason) ->
 
 class SockJSConnection extends stream.Stream
     constructor: (@_session) ->
-        @id  = uuid()
+        @id  = uuid.v4()
         @headers = {}
         @prefix = @_session.prefix
 
@@ -41,8 +41,8 @@ class SockJSConnection extends stream.Stream
         @_session.close(code, reason)
 
     destroy: () ->
-        @removeAllListeners()
         @end()
+        @removeAllListeners()
 
     destroySoon: () ->
         @destroy()
@@ -83,6 +83,7 @@ class Session
             clearTimeout(@to_tref)
             @to_tref = null
         if @readyState is Transport.CLOSING
+            @flushToRecv(recv)
             recv.doSendFrame(@close_frame)
             recv.didClose()
             @to_tref = setTimeout(@timeout_cb, @disconnect_delay)
@@ -112,12 +113,17 @@ class Session
         # Store the last known address.
         unless socket = @recv.connection
             socket = @recv.response.connection
-        @connection.remoteAddress = socket.remoteAddress
-        @connection.remotePort = socket.remotePort
         try
-            @connection.address = socket.address()
-        catch e
-            @connection.address = {}
+            remoteAddress = socket.remoteAddress
+            remotePort    = socket.remotePort
+            address       = socket.address()
+        catch x
+
+        if remoteAddress
+            # All-or-nothing
+            @connection.remoteAddress = remoteAddress
+            @connection.remotePort    = remotePort
+            @connection.address       = address
 
         @connection.url = req.url
         @connection.pathname = req.pathname
@@ -125,29 +131,40 @@ class Session
 
         headers = {}
         for key in ['referer', 'x-client-ip', 'x-forwarded-for', \
-                    'x-cluster-client-ip', 'via', 'x-real-ip']
+                    'x-cluster-client-ip', 'via', 'x-real-ip', \
+                    'x-forwarded-proto', 'x-ssl', \
+                    'host', 'user-agent', 'accept-language']
             headers[key] = req.headers[key] if req.headers[key]
         if headers
             @connection.headers = headers
 
     unregister: ->
+        delay = @recv.delay_disconnect
         @recv.session = null
         @recv = null
         if @to_tref
             clearTimeout(@to_tref)
-        @to_tref = setTimeout(@timeout_cb, @disconnect_delay)
 
-    tryFlush: ->
+        if delay
+            @to_tref = setTimeout(@timeout_cb, @disconnect_delay)
+        else
+            @timeout_cb()
+
+    flushToRecv: (recv) ->
         if @send_buffer.length > 0
             [sb, @send_buffer] = [@send_buffer, []]
-            @recv.doSendBulk(sb)
-        else
+            recv.doSendBulk(sb)
+            return true
+        return false
+
+    tryFlush: ->
+        if not @flushToRecv(@recv) or not @to_tref
             if @to_tref
                 clearTimeout(@to_tref)
             x = =>
                 if @recv
                     @to_tref = setTimeout(x, @heartbeat_delay)
-                    @recv.doSendFrame("h")
+                    @recv.heartbeat()
             @to_tref = setTimeout(x, @heartbeat_delay)
         return
 
@@ -191,9 +208,11 @@ class Session
         @readyState = Transport.CLOSING
         @close_frame = closeFrame(status, reason)
         if @recv
-            # Go away.
+            # Go away. doSendFrame can trigger didClose which can
+            # trigger unregister. Make sure the @recv is not null.
             @recv.doSendFrame(@close_frame)
-            @recv.didClose()
+            if @recv
+                @recv.didClose()
             if @recv
                 @unregister()
         return true
@@ -201,6 +220,8 @@ class Session
 
 
 Session.bySessionId = (session_id) ->
+    if not session_id
+        return null
     return MAP[session_id] or null
 
 register = (req, server, session_id, receiver) ->
@@ -222,7 +243,7 @@ class GenericReceiver
         @setUp(@thingy)
 
     setUp: ->
-        @thingy_end_cb = () => @didAbort(1006, "Connection closed")
+        @thingy_end_cb = () => @didAbort()
         @thingy.addListener('close', @thingy_end_cb)
         @thingy.addListener('end', @thingy_end_cb)
 
@@ -231,35 +252,37 @@ class GenericReceiver
         @thingy.removeListener('end', @thingy_end_cb)
         @thingy_end_cb = null
 
-    didAbort: (status, reason) ->
-        session = @session
-        @didClose(status, reason)
-        if session
-            session.didTimeout()
+    didAbort: ->
+        @delay_disconnect = false
+        @didClose()
 
-    didClose: (status, reason) ->
+    didClose: ->
         if @thingy
             @tearDown(@thingy)
             @thingy = null
         if @session
-            @session.unregister(status, reason)
+            @session.unregister()
 
     doSendBulk: (messages) ->
         q_msgs = for m in messages
                 utils.quote(m)
         @doSendFrame('a' + '[' + q_msgs.join(',') + ']')
 
+    heartbeat: ->
+        @doSendFrame('h')
+
 
 # Write stuff to response, using chunked encoding if possible.
 class ResponseReceiver extends GenericReceiver
     max_response_size: undefined
+    delay_disconnect: true
 
-    constructor: (@response, @options) ->
+    constructor: (@request, @response, @options) ->
         @curr_response_size = 0
         try
-            @response.connection.setKeepAlive(true, 5000)
+            @request.connection.setKeepAlive(true, 5000)
         catch x
-        super (@response.connection)
+        super (@request.connection)
         if @max_response_size is undefined
             @max_response_size = @options.response_limit
 

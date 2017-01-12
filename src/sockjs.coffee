@@ -19,9 +19,9 @@ chunking_test = require('./chunking-test')
 
 sockjsVersion = ->
     try
-        package = fs.readFileSync(__dirname + '/../package.json', 'utf-8')
+        pkg = fs.readFileSync(__dirname + '/../package.json', 'utf-8')
     catch x
-    return if package then JSON.parse(package).version else null
+    return if pkg then JSON.parse(pkg).version else null
 
 
 class App extends webjs.GenericApp
@@ -75,21 +75,22 @@ generate_dispatcher = (options) ->
         t = (s) => [p('/([^/.]+)/([^/.]+)' + s), 'server', 'session']
         opts_filters = (options_filter='xhr_options') ->
             return ['h_sid', 'xhr_cors', 'cache_for', options_filter, 'expose']
-        dispatcher = [
+        prefix_dispatcher = [
             ['GET',     p(''), ['welcome_screen']],
             ['GET',     p('/iframe[0-9-.a-z_]*.html'), ['iframe', 'cache_for', 'expose']],
             ['OPTIONS', p('/info'), opts_filters('info_options')],
             ['GET',     p('/info'), ['xhr_cors', 'h_no_cache', 'info', 'expose']],
             ['OPTIONS', p('/chunking_test'), opts_filters()],
-            ['POST',    p('/chunking_test'), ['xhr_cors', 'expect_xhr', 'chunking_test']],
-            ['GET',     p('/websocket'),   ['raw_websocket']],
+            ['POST',    p('/chunking_test'), ['xhr_cors', 'expect_xhr', 'chunking_test']]
+        ]
+        transport_dispatcher = [
             ['GET',     t('/jsonp'), ['h_sid', 'h_no_cache', 'jsonp']],
-            ['POST',    t('/jsonp_send'), ['h_sid', 'expect_form', 'jsonp_send']],
-            ['POST',    t('/xhr'), ['h_sid', 'xhr_cors', 'xhr_poll']],
+            ['POST',    t('/jsonp_send'), ['h_sid', 'h_no_cache', 'expect_form', 'jsonp_send']],
+            ['POST',    t('/xhr'), ['h_sid', 'h_no_cache', 'xhr_cors', 'xhr_poll']],
             ['OPTIONS', t('/xhr'), opts_filters()],
-            ['POST',    t('/xhr_send'), ['h_sid', 'xhr_cors', 'expect_xhr', 'xhr_send']],
+            ['POST',    t('/xhr_send'), ['h_sid', 'h_no_cache', 'xhr_cors', 'expect_xhr', 'xhr_send']],
             ['OPTIONS', t('/xhr_send'), opts_filters()],
-            ['POST',    t('/xhr_streaming'), ['h_sid', 'xhr_cors', 'xhr_streaming']],
+            ['POST',    t('/xhr_streaming'), ['h_sid', 'h_no_cache', 'xhr_cors', 'xhr_streaming']],
             ['OPTIONS', t('/xhr_streaming'), opts_filters()],
             ['GET',     t('/eventsource'), ['h_sid', 'h_no_cache', 'eventsource']],
             ['GET',     t('/htmlfile'),    ['h_sid', 'h_no_cache', 'htmlfile']],
@@ -97,21 +98,25 @@ generate_dispatcher = (options) ->
 
         # TODO: remove this code on next major release
         if options.websocket
-            dispatcher.push(
+            prefix_dispatcher.push(
+                ['GET', p('/websocket'), ['raw_websocket']])
+            transport_dispatcher.push(
                 ['GET', t('/websocket'), ['sockjs_websocket']])
         else
             # modify urls to return 404
-            dispatcher.push(
+            prefix_dispatcher.push(
+                ['GET', p('/websocket'), ['cache_for', 'disabled_transport']])
+            transport_dispatcher.push(
                 ['GET', t('/websocket'), ['cache_for', 'disabled_transport']])
-        return dispatcher
+        return prefix_dispatcher.concat(transport_dispatcher)
 
 class Listener
     constructor: (@options, emit) ->
         @app = new App()
-        @app.options = options
+        @app.options = @options
         @app.emit = emit
         @app.log('debug', 'SockJS v' + sockjsVersion() + ' ' +
-                          'bound to ' + JSON.stringify(options.prefix))
+                          'bound to ' + JSON.stringify(@options.prefix))
         @dispatcher = generate_dispatcher(@options)
         @webjs_handler = webjs.generateHandler(@app, @dispatcher)
         @path_regexp = new RegExp('^' + @options.prefix  + '([/].+|[/]?)$')
@@ -132,13 +137,13 @@ class Server extends events.EventEmitter
         @options =
             prefix: ''
             response_limit: 128*1024
-            origins: ['*:*']
             websocket: true
+            faye_server_options: null
             jsessionid: false
             heartbeat_delay: 25000
             disconnect_delay: 5000
             log: (severity, line) -> console.log(line)
-            sockjs_url: 'http://cdn.sockjs.org/sockjs-0.3.min.js'
+            sockjs_url: 'https://cdn.jsdelivr.net/sockjs/1.0.1/sockjs.min.js'
         if user_options
             utils.objectExtend(@options, user_options)
 

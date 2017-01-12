@@ -44,12 +44,10 @@ fake_response = (req, res) ->
             r = r.concat(['', ''])
             try
                 res.write(r.join('\r\n'))
-            catch e
-                null
+            catch x
             try
                 res.end()
-            catch e
-                null
+            catch x
         res.setHeader = (k, v) -> headers[k] = v
 
 
@@ -115,15 +113,14 @@ exports.GenericApp = class GenericApp
             try
                 res.writeHead(500, {})
                 res.end("500 - Internal Server Error")
-            catch y
+            catch x
             @log('error', 'Exception on "'+ req.method + ' ' + req.href + '" in filter "' + req.last_fun + '":\n' + (x.stack || x))
         return true
 
     log_request: (req, res, data) ->
         td = (new Date()) - req.start_date
         @log('info', req.method + ' ' + req.url + ' ' + td + 'ms ' +
-                (if res.finished then res._header.split('\r')[0].split(' ')[1] \
-                                  else '(unfinished)'))
+                (if res.finished then res.statusCode else '(unfinished)'))
         return data
 
     log: (severity, line) ->
@@ -177,7 +174,7 @@ exports.GenericApp = class GenericApp
         return content
 
     h_no_cache: (req, res, content) ->
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        res.setHeader('Cache-Control', 'no-store, no-cache, no-transform, must-revalidate, max-age=0')
         return content
 
     expect_form: (req, res, _data, next_filter) ->

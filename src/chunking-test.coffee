@@ -33,10 +33,17 @@ exports.app =
     info: (req, res, _) ->
         info = {
             websocket: @options.websocket,
-            origins: @options.origins,
+            origins: ['*:*'],
             cookie_needed: not not @options.jsessionid,
             entropy: utils.random32(),
         }
+        # Users can specify a new base URL which further requests will be made
+        # against. For example, it may contain a randomized domain name to
+        # avoid browser per-domain connection limits.
+        if typeof @options.base_url is 'function'
+            info.base_url = @options.base_url()
+        else if @options.base_url
+            info.base_url = @options.base_url
         res.setHeader('Content-Type', 'application/json; charset=UTF-8')
         res.writeHead(200)
         res.end(JSON.stringify(info))
